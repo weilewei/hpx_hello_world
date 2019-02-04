@@ -30,10 +30,13 @@ HPX_PLAIN_ACTION(hello_world, hello_world_action);
 
 // rescheduler 
 void hello_world_foreman() {
+	// get current avaliable threads
 	std::size_t os_threads_count = hpx::get_os_thread_count();
 	std::map<size_t, size_t> os_threads;
 
-	// get current avaliable threads
+	// populate a map with the OS-threads numbers of all OS-threads on this locality.
+	// When the hello world msg has been printed on a particular OS-thread, we will remove
+	// it from the map
 	for (std::size_t i = 0; i < os_threads_count; i++) {
 		os_threads[i] = i;
 	}
@@ -41,8 +44,9 @@ void hello_world_foreman() {
 	// Find the global name of the current locality.
 	hpx::naming::id_type const here = hpx::find_here();
 
+	// As long as the map is not empty, keep scheduling threads
 	while (!os_threads.empty()) {
-		// launch future tasks from those threads 
+		// launch future tasks asychronously from those threads 
 	    // that are not matched with expected threads
 		std::vector<hpx::future<std::size_t> > futures;
 		for (auto each : os_threads) {
@@ -52,6 +56,7 @@ void hello_world_foreman() {
 			}
 		}
 
+		// mutex is the gate-keeper
 		hpx::lcos::local::spinlock mtx;
 		hpx::lcos::wait_each(
 			hpx::util::unwrapping([&](std::size_t t) {
@@ -63,29 +68,6 @@ void hello_world_foreman() {
 		}),
 			futures);
 	}
-
-
-
-
-	//// a barrier: wait all tasks to be finished
-	//hpx::wait_all(futures);
-
-	//using mutex_type = hpx::lcos::local::spinlock;
-	//mutex_type mtx;
-	//// assign passed signal (-1) for those threads that matched correctly
-	//for (size_t i = 0; i < futures.size(); i++) {
-	//	size_t passed = futures[i].get();
-	//	if (passed != -1) {
-	//		std::lock_guard<mutex_type> l(mtx);
-	//		os_threads[passed] = -1;
-	//	}
-	//}
-
-	//// recursively call of rescheduler if not every thread works correctly
-	//for (size_t i = 0; i < os_threads.size(); i++) {
-	//	if (os_threads[i] != -1)
-	//		hello_world_foreman();
-	//}
 }
 
 HPX_PLAIN_ACTION(hello_world_foreman, hello_world_foreman_action);
