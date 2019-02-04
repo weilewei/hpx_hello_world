@@ -4,6 +4,7 @@
 #include <hpx/include/iostreams.hpp>
 #include <unordered_map>
 #include <hpx/lcos/local/spinlock.hpp>
+#include <hpx/include/lcos.hpp>
 
 using mutex_type = hpx::lcos::local::spinlock;
 
@@ -30,7 +31,7 @@ HPX_PLAIN_ACTION(hello_world, hello_world_action);
 // rescheduler 
 void hello_world_foreman() {
 	std::size_t os_threads_count = hpx::get_os_thread_count();
-	std::unordered_map<size_t, size_t> os_threads;
+	std::map<size_t, size_t> os_threads;
 
 	// get current avaliable threads
 	for (std::size_t i = 0; i < os_threads_count; i++) {
@@ -40,35 +41,51 @@ void hello_world_foreman() {
 	// Find the global name of the current locality.
 	hpx::naming::id_type const here = hpx::find_here();
 
-	// launch future tasks from those threads 
-	// that are not matched with expected threads
-	std::vector<hpx::future<std::size_t> > futures;
-	for (size_t i = 0; i < os_threads.size(); i++) {
-		if (os_threads[i] != -1) {
-			typedef hello_world_action action_type;
-			futures.push_back(hpx::async<action_type>(here, os_threads[i]));
-		}			
-	}
-
-	// a barrier: wait all tasks to be finished
-	hpx::wait_all(futures);
-
-	 using mutex_type = hpx::lcos::local::spinlock;
-	 mutex_type mtx;
-	// assign passed signal (-1) for those threads that matched correctly
-	for (size_t i = 0; i < futures.size(); i++) {
-		size_t passed = futures[i].get();
-		if (passed != -1) {
-			std::lock_guard<mutex_type> l(mtx);
-			os_threads[passed] = -1;
+	while (!os_threads.empty()) {
+		// launch future tasks from those threads 
+	    // that are not matched with expected threads
+		std::vector<hpx::future<std::size_t> > futures;
+		for (auto each : os_threads) {
+			if (each.second != -1) {
+				typedef hello_world_action action_type;
+				futures.push_back(hpx::async<action_type>(here, each.second));
+			}
 		}
+
+		hpx::lcos::local::spinlock mtx;
+		hpx::lcos::wait_each(
+			hpx::util::unwrapping([&](std::size_t t) {
+			if (std::size_t(-1) != t)
+			{
+				std::lock_guard<hpx::lcos::local::spinlock> lk(mtx);
+				os_threads.erase(t);
+			}
+		}),
+			futures);
 	}
 
-	// recursively call of rescheduler if not every thread works correctly
-	for (size_t i = 0; i < os_threads.size(); i++) {
-		if (os_threads[i] != -1)
-			hello_world_foreman();
-	}
+
+
+
+	//// a barrier: wait all tasks to be finished
+	//hpx::wait_all(futures);
+
+	//using mutex_type = hpx::lcos::local::spinlock;
+	//mutex_type mtx;
+	//// assign passed signal (-1) for those threads that matched correctly
+	//for (size_t i = 0; i < futures.size(); i++) {
+	//	size_t passed = futures[i].get();
+	//	if (passed != -1) {
+	//		std::lock_guard<mutex_type> l(mtx);
+	//		os_threads[passed] = -1;
+	//	}
+	//}
+
+	//// recursively call of rescheduler if not every thread works correctly
+	//for (size_t i = 0; i < os_threads.size(); i++) {
+	//	if (os_threads[i] != -1)
+	//		hello_world_foreman();
+	//}
 }
 
 HPX_PLAIN_ACTION(hello_world_foreman, hello_world_foreman_action);
