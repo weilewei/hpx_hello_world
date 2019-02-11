@@ -59,25 +59,27 @@ void hello_world_foreman() {
 	}
 }
 
-HPX_PLAIN_ACTION(hello_world_foreman, hello_world_foreman_action);
+//HPX_PLAIN_ACTION(hello_world_foreman, hello_world_foreman_action);
 
 int main() {
-	// get a list of all available localities
-	std::vector<hpx::id_type> localities = hpx::find_all_localities();
+	//// get a list of all available localities
+	//std::vector<hpx::id_type> localities = hpx::find_all_localities();
 
-	// reserve storage space for futures, one for each locality
-	std::vector<hpx::lcos::future<void> > futures;
-	futures.reserve(localities.size());
+	//// reserve storage space for futures, one for each locality
+	//std::vector<hpx::lcos::future<void> > futures;
+	//futures.reserve(localities.size());
 
-	for (hpx::id_type const& node : localities)
-	{
-		// Asynchronously start a new task. The task is encapsulated in a
-		// future, which we can query to determine if the task has
-		// completed.
-		typedef hello_world_foreman_action action_type;
-		futures.push_back(hpx::async<action_type>(node));
-	}
+	//for (hpx::id_type const& node : localities)
+	//{
+	//	// Asynchronously start a new task. The task is encapsulated in a
+	//	// future, which we can query to determine if the task has
+	//	// completed.
+	//	typedef hello_world_foreman_action action_type;
+	//	futures.push_back(hpx::async<action_type>(node));
+	//}
 
-	hpx::wait_all(futures);
+	//hpx::wait_all(futures);
+	
+	hello_world_foreman();
 	return 0;
 }
